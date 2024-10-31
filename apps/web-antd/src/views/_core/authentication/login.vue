@@ -2,9 +2,9 @@
 import type { VbenFormSchema } from '@vben/common-ui';
 import type { BasicOption } from '@vben/types';
 
-import { computed } from 'vue';
+import { computed, markRaw } from 'vue';
 
-import { AuthenticationLogin, z } from '@vben/common-ui';
+import { AuthenticationLogin, SliderCaptcha, z } from '@vben/common-ui';
 import { $t } from '@vben/locales';
 
 import { useAuthStore } from '#/store';
@@ -15,15 +15,15 @@ const authStore = useAuthStore();
 
 const MOCK_USER_OPTIONS: BasicOption[] = [
   {
-    label: '超级管理员',
+    label: 'Super',
     value: 'vben',
   },
   {
-    label: '管理员',
+    label: 'Admin',
     value: 'admin',
   },
   {
-    label: '用户',
+    label: 'User',
     value: 'jack',
   },
 ];
@@ -77,6 +77,13 @@ const formSchema = computed((): VbenFormSchema[] => {
       fieldName: 'password',
       label: $t('authentication.password'),
       rules: z.string().min(1, { message: $t('authentication.passwordTip') }),
+    },
+    {
+      component: markRaw(SliderCaptcha),
+      fieldName: 'captcha',
+      rules: z.boolean().refine((value) => value, {
+        message: $t('authentication.verifyRequiredTip'),
+      }),
     },
   ];
 });

@@ -7,6 +7,7 @@ import {
   VBEN_LOGO_URL,
   VBEN_NAIVE_PREVIEW_URL,
 } from '@vben/constants';
+import { SvgAntdvLogoIcon } from '@vben/icons';
 
 import { BasicLayout, IFrameView } from '#/layouts';
 import { $t } from '#/locales';
@@ -18,7 +19,7 @@ const routes: RouteRecordRaw[] = [
       badgeType: 'dot',
       icon: VBEN_LOGO_URL,
       order: 9999,
-      title: $t('page.vben.title'),
+      title: $t('demos.vben.title'),
     },
     name: 'VbenProject',
     path: '/vben-admin',
@@ -29,7 +30,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/_core/about/index.vue'),
         meta: {
           icon: 'lucide:copyright',
-          title: $t('page.vben.about'),
+          title: $t('demos.vben.about'),
         },
       },
       {
@@ -39,7 +40,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           icon: 'lucide:book-open-text',
           link: VBEN_DOC_URL,
-          title: $t('page.vben.document'),
+          title: $t('demos.vben.document'),
         },
       },
       {
@@ -58,8 +59,9 @@ const routes: RouteRecordRaw[] = [
         component: IFrameView,
         meta: {
           badgeType: 'dot',
+          icon: 'logos:naiveui',
           link: VBEN_NAIVE_PREVIEW_URL,
-          title: $t('page.vben.naive-ui'),
+          title: $t('demos.vben.naive-ui'),
         },
       },
       {
@@ -68,8 +70,9 @@ const routes: RouteRecordRaw[] = [
         component: IFrameView,
         meta: {
           badgeType: 'dot',
+          icon: SvgAntdvLogoIcon,
           link: VBEN_ANT_PREVIEW_URL,
-          title: $t('page.vben.antdv'),
+          title: $t('demos.vben.antdv'),
         },
       },
     ],

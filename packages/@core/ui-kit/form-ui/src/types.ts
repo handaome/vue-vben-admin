@@ -1,5 +1,5 @@
 import type { VbenButtonProps } from '@vben-core/shadcn-ui';
-import type { Field, FormContext, GenericObject } from 'vee-validate';
+import type { FieldOptions, FormContext, GenericObject } from 'vee-validate';
 import type { ZodTypeAny } from 'zod';
 
 import type { FormApi } from './form-api';
@@ -9,8 +9,8 @@ import type { Component, HtmlHTMLAttributes, Ref } from 'vue';
 export type FormLayout = 'horizontal' | 'vertical';
 
 export type BaseFormComponentType =
-  | 'DefaultResetActionButton'
-  | 'DefaultSubmitActionButton'
+  | 'DefaultButton'
+  | 'PrimaryButton'
   | 'VbenCheckbox'
   | 'VbenInput'
   | 'VbenInputPassword'
@@ -32,6 +32,15 @@ export type FormItemClassType =
   | `${Breakpoints}cols-start-${'auto' | GridCols}`
   | (Record<never, never> & string)
   | WrapperClassType;
+
+export type FormFieldOptions = Partial<
+  {
+    validateOnBlur?: boolean;
+    validateOnChange?: boolean;
+    validateOnInput?: boolean;
+    validateOnModelUpdate?: boolean;
+  } & FieldOptions
+>;
 
 export interface FormShape {
   /** 默认值 */
@@ -58,6 +67,7 @@ export type CustomRenderType = (() => Component | string) | string;
 
 export type FormSchemaRuleType =
   | 'required'
+  | 'selectRequired'
   | null
   | (Record<never, never> & string)
   | ZodTypeAny;
@@ -87,12 +97,12 @@ export interface FormItemDependencies {
    * 是否禁用
    * @returns 是否禁用
    */
-  disabled?: FormItemDependenciesCondition;
+  disabled?: boolean | FormItemDependenciesCondition;
   /**
    * 是否渲染（删除dom）
    * @returns 是否渲染
    */
-  if?: FormItemDependenciesCondition;
+  if?: boolean | FormItemDependenciesCondition;
   /**
    * 是否必填
    * @returns 是否必填
@@ -106,7 +116,7 @@ export interface FormItemDependencies {
    * 是否隐藏(Css)
    * @returns 是否隐藏
    */
-  show?: FormItemDependenciesCondition;
+  show?: boolean | FormItemDependenciesCondition;
   /**
    * 任意触发都会执行
    */
@@ -139,10 +149,19 @@ export interface FormCommonConfig {
    */
   disabled?: boolean;
   /**
-   * 所有表单项的控件样式
-   * @default ""
+   * 是否禁用所有表单项的change事件监听
+   * @default false
    */
-  formFieldProps?: Partial<typeof Field>;
+  disabledOnChangeListener?: boolean;
+  /**
+   * 所有表单项的空状态值,默认都是undefined，naive-ui的空状态值是null
+   */
+  emptyStateValue?: null | undefined;
+  /**
+   * 所有表单项的控件样式
+   * @default {}
+   */
+  formFieldProps?: FormFieldOptions;
   /**
    * 所有表单项的栅格布局
    * @default ""
@@ -160,7 +179,7 @@ export interface FormCommonConfig {
   hideRequiredMark?: boolean;
   /**
    * 所有表单项的label样式
-   * @default "w-[100px]"
+   * @default ""
    */
   labelClass?: string;
   /**
@@ -230,6 +249,11 @@ export interface FormRenderProps<
    */
   collapsedRows?: number;
   /**
+   * 是否触发resize事件
+   * @default false
+   */
+  collapseTriggerResize?: boolean;
+  /**
    * 表单项通用后备配置，当子项目没配置时使用这里的配置，子项目配置优先级高于此配置
    */
   commonConfig?: FormCommonConfig;
@@ -265,8 +289,9 @@ export interface FormRenderProps<
 }
 
 export interface ActionButtonOptions extends VbenButtonProps {
+  [key: string]: any;
+  content?: string;
   show?: boolean;
-  text?: string;
 }
 
 export interface VbenFormProps<
@@ -288,12 +313,16 @@ export interface VbenFormProps<
    */
   handleSubmit?: HandleSubmitFn;
   /**
+   * 表单值变化回调
+   */
+  handleValuesChange?: (values: Record<string, any>) => void;
+  /**
    * 重置按钮参数
    */
   resetButtonOptions?: ActionButtonOptions;
-
   /**
    * 是否显示默认操作按钮
+   * @default true
    */
   showDefaultActions?: boolean;
 
@@ -301,6 +330,12 @@ export interface VbenFormProps<
    * 提交按钮参数
    */
   submitButtonOptions?: ActionButtonOptions;
+
+  /**
+   * 是否在回车时提交表单
+   * @default false
+   */
+  submitOnEnter?: boolean;
 }
 
 export type ExtendedFormApi = {
@@ -312,13 +347,19 @@ export type ExtendedFormApi = {
 export interface VbenFormAdapterOptions<
   T extends BaseFormComponentType = BaseFormComponentType,
 > {
-  components: Partial<Record<T, Component>>;
   config?: {
     baseModelPropName?: string;
+    disabledOnChangeListener?: boolean;
+    emptyStateValue?: null | undefined;
     modelPropNameMap?: Partial<Record<T, string>>;
   };
   defineRules?: {
     required?: (
+      value: any,
+      params: any,
+      ctx: Record<string, any>,
+    ) => boolean | string;
+    selectRequired?: (
       value: any,
       params: any,
       ctx: Record<string, any>,

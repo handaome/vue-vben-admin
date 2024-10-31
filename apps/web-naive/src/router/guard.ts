@@ -8,7 +8,7 @@ import { startProgress, stopProgress } from '@vben/utils';
 import { useTitle } from '@vueuse/core';
 
 import { $t } from '#/locales';
-import { coreRouteNames, dynamicRoutes } from '#/router/routes';
+import { accessRoutes, coreRouteNames } from '#/router/routes';
 import { useAuthStore } from '#/store';
 
 import { generateAccess } from './access';
@@ -34,9 +34,7 @@ function setupCommonGuard(router: Router) {
   router.afterEach((to) => {
     // 记录页面是否加载,如果已经加载，后续的页面切换动画等效果不在重复执行
 
-    if (preferences.tabbar.enable) {
-      loadedPaths.add(to.path);
-    }
+    loadedPaths.add(to.path);
 
     // 关闭页面加载进度条
     if (preferences.transition.progress) {
@@ -106,7 +104,7 @@ function setupAccessGuard(router: Router) {
       roles: userRoles,
       router,
       // 则会在菜单中显示，但是访问会被重定向到403
-      routes: dynamicRoutes,
+      routes: accessRoutes,
     });
 
     // 保存菜单信息和路由信息

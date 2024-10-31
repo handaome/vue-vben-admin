@@ -3,7 +3,7 @@ import { Page } from '@vben/common-ui';
 
 import { Card, message } from 'ant-design-vue';
 
-import { useVbenForm } from '#/adapter';
+import { useVbenForm } from '#/adapter/form';
 
 const [QueryForm] = useVbenForm({
   // 默认展开
@@ -18,9 +18,8 @@ const [QueryForm] = useVbenForm({
   // 提交函数
   handleSubmit: onSubmit,
   // 垂直布局，label和input在不同行，值为vertical
-  layout: 'horizontal',
-  // 使用 tailwindcss grid布局
   // 水平布局，label和input在同一行
+  layout: 'horizontal',
   schema: [
     {
       // 组件需要在 #/adapter.ts内注册，并加上类型
@@ -81,7 +80,7 @@ const [QueryForm] = useVbenForm({
   // 是否可展开
   showCollapseButton: true,
   submitButtonOptions: {
-    text: '查询',
+    content: '查询',
   },
   // 大屏一行显示3个，中屏一行显示2个，小屏一行显示1个
   wrapperClass: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
@@ -101,9 +100,8 @@ const [QueryForm1] = useVbenForm({
   // 提交函数
   handleSubmit: onSubmit,
   // 垂直布局，label和input在不同行，值为vertical
-  layout: 'horizontal',
-  // 使用 tailwindcss grid布局
   // 水平布局，label和input在同一行
+  layout: 'horizontal',
   schema: (() => {
     const schema = [];
     for (let index = 0; index < 14; index++) {
@@ -121,7 +119,7 @@ const [QueryForm1] = useVbenForm({
   // 是否可展开
   showCollapseButton: true,
   submitButtonOptions: {
-    text: '查询',
+    content: '查询',
   },
   // 大屏一行显示3个，中屏一行显示2个，小屏一行显示1个
   wrapperClass: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3',

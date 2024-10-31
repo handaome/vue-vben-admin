@@ -5,38 +5,48 @@ import type {
   ValidationOptions,
 } from 'vee-validate';
 
-import type { FormActions, VbenFormProps } from './types';
+import type { FormActions, FormSchema, VbenFormProps } from './types';
 
 import { toRaw } from 'vue';
 
 import { Store } from '@vben-core/shared/store';
-import { bindMethods, isFunction, StateHandler } from '@vben-core/shared/utils';
+import {
+  bindMethods,
+  isFunction,
+  mergeWithArrayOverride,
+  StateHandler,
+} from '@vben-core/shared/utils';
+
+import { objectPick } from '@vueuse/core';
 
 function getDefaultState(): VbenFormProps {
   return {
     actionWrapperClass: '',
     collapsed: false,
     collapsedRows: 1,
+    collapseTriggerResize: false,
     commonConfig: {},
     handleReset: undefined,
     handleSubmit: undefined,
+    handleValuesChange: undefined,
     layout: 'horizontal',
     resetButtonOptions: {},
     schema: [],
     showCollapseButton: false,
     showDefaultActions: true,
     submitButtonOptions: {},
+    submitOnEnter: false,
     wrapperClass: 'grid-cols-1',
   };
 }
 
 export class FormApi {
-  // private prevState!: ModalState;
-  private state: null | VbenFormProps = null;
+  private prevState: null | VbenFormProps = null;
   // private api: Pick<VbenFormProps, 'handleReset' | 'handleSubmit'>;
   public form = {} as FormActions;
 
   isMounted = false;
+  public state: null | VbenFormProps = null;
 
   stateHandler: StateHandler;
 
@@ -54,7 +64,9 @@ export class FormApi {
       },
       {
         onUpdate: () => {
+          this.prevState = this.state;
           this.state = this.store.state;
+          this.updateState();
         },
       },
     );
@@ -75,14 +87,77 @@ export class FormApi {
     return this.form;
   }
 
+  private updateState() {
+    const currentSchema = this.state?.schema ?? [];
+    const prevSchema = this.prevState?.schema ?? [];
+    // 进行了删除schema操作
+    if (currentSchema.length < prevSchema.length) {
+      const currentFields = new Set(
+        currentSchema.map((item) => item.fieldName),
+      );
+      const deletedSchema = prevSchema.filter(
+        (item) => !currentFields.has(item.fieldName),
+      );
+
+      for (const schema of deletedSchema) {
+        this.form?.setFieldValue(schema.fieldName, undefined);
+      }
+    }
+  }
+
   // 如果需要多次更新状态，可以使用 batch 方法
   batchStore(cb: () => void) {
     this.store.batch(cb);
   }
 
+  getState() {
+    return this.state;
+  }
+
   async getValues() {
     const form = await this.getForm();
     return form.values;
+  }
+
+  merge(formApi: FormApi) {
+    const chain = [this, formApi];
+    const proxy = new Proxy(formApi, {
+      get(target: any, prop: any) {
+        if (prop === 'merge') {
+          return (nextFormApi: FormApi) => {
+            chain.push(nextFormApi);
+            return proxy;
+          };
+        }
+        if (prop === 'submitAllForm') {
+          return async (needMerge: boolean = true) => {
+            try {
+              const results = await Promise.all(
+                chain.map(async (api) => {
+                  const form = await api.getForm();
+                  const validateResult = await api.validate();
+                  if (!validateResult.valid) {
+                    return;
+                  }
+                  const rawValues = toRaw(form.values || {});
+                  return rawValues;
+                }),
+              );
+              if (needMerge) {
+                const mergedResults = Object.assign({}, ...results);
+                return mergedResults;
+              }
+              return results;
+            } catch (error) {
+              console.error('Validation error:', error);
+            }
+          };
+        }
+        return target[prop];
+      },
+    });
+
+    return proxy;
   }
 
   mount(formActions: FormActions) {
@@ -138,18 +213,33 @@ export class FormApi {
       | Partial<VbenFormProps>,
   ) {
     if (isFunction(stateOrFn)) {
-      this.store.setState(stateOrFn as (prev: VbenFormProps) => VbenFormProps);
+      this.store.setState((prev) => {
+        return mergeWithArrayOverride(stateOrFn(prev), prev);
+      });
     } else {
-      this.store.setState((prev) => ({ ...prev, ...stateOrFn }));
+      this.store.setState((prev) => mergeWithArrayOverride(stateOrFn, prev));
     }
   }
 
+  /**
+   * 设置表单值
+   * @param fields record
+   * @param filterFields 过滤不在schema中定义的字段 默认为true
+   * @param shouldValidate
+   */
   async setValues(
     fields: Record<string, any>,
+    filterFields: boolean = true,
     shouldValidate: boolean = false,
   ) {
     const form = await this.getForm();
-    form.setValues(fields, shouldValidate);
+    if (!filterFields) {
+      form.setValues(fields, shouldValidate);
+      return;
+    }
+    const fieldNames = this.state?.schema?.map((item) => item.fieldName) ?? [];
+    const filteredFields = objectPick(fields, fieldNames);
+    form.setValues(filteredFields, shouldValidate);
   }
 
   async submitForm(e?: Event) {
@@ -162,14 +252,54 @@ export class FormApi {
     return rawValues;
   }
 
-  unmounted() {
-    this.state = null;
+  unmount() {
+    // this.state = null;
     this.isMounted = false;
     this.stateHandler.reset();
   }
 
+  updateSchema(schema: Partial<FormSchema>[]) {
+    const updated: Partial<FormSchema>[] = [...schema];
+    const hasField = updated.every(
+      (item) => Reflect.has(item, 'fieldName') && item.fieldName,
+    );
+
+    if (!hasField) {
+      console.error(
+        'All items in the schema array must have a valid `fieldName` property to be updated',
+      );
+      return;
+    }
+    const currentSchema = [...(this.state?.schema ?? [])];
+
+    const updatedMap: Record<string, any> = {};
+
+    updated.forEach((item) => {
+      if (item.fieldName) {
+        updatedMap[item.fieldName] = item;
+      }
+    });
+
+    currentSchema.forEach((schema, index) => {
+      const updatedData = updatedMap[schema.fieldName];
+      if (updatedData) {
+        currentSchema[index] = mergeWithArrayOverride(
+          updatedData,
+          schema,
+        ) as FormSchema;
+      }
+    });
+    this.setState({ schema: currentSchema });
+  }
+
   async validate(opts?: Partial<ValidationOptions>) {
     const form = await this.getForm();
-    return await form.validate(opts);
+
+    const validateResult = await form.validate(opts);
+
+    if (Object.keys(validateResult?.errors ?? {}).length > 0) {
+      console.error('validate error', validateResult?.errors);
+    }
+    return validateResult;
   }
 }
